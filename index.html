@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>JUA SICK WORLD - Dinosaur Sanctuary</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
@@ -20,6 +20,9 @@
             color: white;
             image-rendering: pixelated;
             user-select: none;
+            touch-action: manipulation; /* スマホでの操作性向上 */
+            -webkit-tap-highlight-color: transparent;
+            overflow: hidden; /* アプリライクな挙動のため全体スクロール禁止 */
         }
         .pixel-border {
             box-shadow: 
@@ -30,17 +33,18 @@
             margin: 4px;
         }
         .pixel-btn {
-            transition: transform 0.1s;
+            transition: transform 0.05s;
             cursor: pointer;
         }
         .pixel-btn:active {
-            transform: translateY(4px);
+            transform: translateY(2px);
+            opacity: 0.8;
         }
         .dino-card {
-            transition: all 0.2s;
+            transition: transform 0.1s;
         }
-        .dino-card:hover {
-            transform: scale(1.02);
+        .dino-card:active {
+            transform: scale(0.95);
         }
         /* 状態アイコンのアニメーション */
         @keyframes bounce {
@@ -53,23 +57,15 @@
         /* 浮き出るテキスト */
         @keyframes floatUp {
             0% { opacity: 1; transform: translateY(0); }
-            100% { opacity: 0; transform: translateY(-20px); }
+            100% { opacity: 0; transform: translateY(-30px); }
         }
         .floating-text {
             position: absolute;
             pointer-events: none;
-            animation: floatUp 1s ease-out forwards;
-            font-size: 12px;
+            animation: floatUp 0.8s ease-out forwards;
+            font-size: 14px;
             z-index: 50;
-        }
-        .shake {
-            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
-        }
-        @keyframes shake {
-            10%, 90% { transform: translate3d(-1px, 0, 0); }
-            20%, 80% { transform: translate3d(2px, 0, 0); }
-            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
-            40%, 60% { transform: translate3d(4px, 0, 0); }
+            text-shadow: 2px 2px 0 #000;
         }
         /* スキャンラインエフェクト */
         .scanlines {
@@ -77,8 +73,8 @@
                 to bottom,
                 rgba(255,255,255,0),
                 rgba(255,255,255,0) 50%,
-                rgba(0,0,0,0.2) 50%,
-                rgba(0,0,0,0.2)
+                rgba(0,0,0,0.1) 50%,
+                rgba(0,0,0,0.1)
             );
             background-size: 100% 4px;
             position: fixed;
@@ -86,78 +82,103 @@
             pointer-events: none;
             z-index: 100;
         }
+        /* スクロールバーのカスタマイズ */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e272e; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #636e72; 
+            border-radius: 4px;
+        }
     </style>
 </head>
-<body class="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden">
+<body class="h-screen w-screen bg-gray-900">
     <div class="scanlines"></div>
 
-    <!-- Game Container -->
-    <div id="game-container" class="w-full max-w-4xl bg-gray-800 p-4 border-4 border-gray-600 rounded-lg shadow-2xl z-10 hidden">
+    <!-- Game Container (App Layout) -->
+    <div id="game-container" class="fixed inset-0 flex flex-col z-10 hidden bg-gray-800">
         
-        <!-- Header / Stats -->
-        <div class="flex flex-wrap justify-between items-center mb-6 bg-gray-900 p-4 pixel-border">
-            <h1 class="text-xl md:text-2xl text-green-400 mb-2 md:mb-0">JUA SICK WORLD</h1>
-            <div class="flex gap-4 text-xs md:text-sm">
+        <!-- Header (Fixed) -->
+        <div class="shrink-0 bg-gray-900 p-2 border-b-4 border-gray-700 z-20 shadow-lg">
+            <div class="flex justify-between items-center mb-1">
+                <h1 class="text-xs md:text-lg text-green-400 truncate mr-2">JUA SICK WORLD</h1>
+                <div class="text-xs text-blue-400 whitespace-nowrap">DAY <span id="day" class="text-white">1</span></div>
+            </div>
+            <div class="flex justify-between text-xs md:text-sm">
                 <div class="text-yellow-400">💰 <span id="funds">1000</span></div>
-                <div class="text-blue-400">📅 DAY: <span id="day">1</span></div>
-                <div class="text-red-500">💀 DEAD: <span id="dead-count">0</span>/3</div>
+                <div class="text-red-500">💀 <span id="dead-count">0</span>/3</div>
             </div>
         </div>
 
-        <!-- Main Grid (Sanctuary) -->
-        <div id="sanctuary" class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-            <!-- Slots will be generated by JS -->
+        <!-- Main Content (Scrollable) -->
+        <div class="flex-grow overflow-y-auto p-2 pb-32 bg-gray-800">
+            <div id="sanctuary" class="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-4 max-w-4xl mx-auto">
+                <!-- Slots will be generated by JS -->
+            </div>
         </div>
 
-        <!-- Control Panel -->
-        <div class="bg-gray-700 p-4 rounded pixel-border">
-            <p class="text-xs text-center mb-2 text-gray-300">▼ ツールを選択して恐竜をタップ ▼</p>
-            <div class="flex justify-center gap-2 md:gap-4" id="toolbar">
-                <button onclick="selectTool('feed')" id="btn-feed" class="pixel-btn bg-orange-600 hover:bg-orange-500 text-white py-3 px-4 rounded border-b-4 border-orange-800 w-full md:w-auto text-xs md:text-sm flex flex-col items-center">
-                    <span class="text-xl mb-1">🍖</span>
-                    <span>餌<br>-$20</span>
-                </button>
-                <button onclick="selectTool('heal')" id="btn-heal" class="pixel-btn bg-blue-600 hover:bg-blue-500 text-white py-3 px-4 rounded border-b-4 border-blue-800 w-full md:w-auto text-xs md:text-sm flex flex-col items-center">
-                    <span class="text-xl mb-1">💉</span>
-                    <span>治療<br>-$50</span>
-                </button>
-                <button onclick="selectTool('bandage')" id="btn-bandage" class="pixel-btn bg-white hover:bg-gray-100 text-gray-800 py-3 px-4 rounded border-b-4 border-gray-400 w-full md:w-auto text-xs md:text-sm flex flex-col items-center">
-                    <span class="text-xl mb-1">🩹</span>
-                    <span>包帯<br>-$30</span>
-                </button>
-                <button onclick="selectTool('remove')" id="btn-remove" class="pixel-btn bg-gray-600 hover:bg-gray-500 text-white py-3 px-4 rounded border-b-4 border-gray-800 w-full md:w-auto text-xs md:text-sm flex flex-col items-center">
-                    <span class="text-xl mb-1">⚰️</span>
-                    <span>撤去<br>-$100</span>
-                </button>
+        <!-- Control Panel (Fixed Bottom) -->
+        <div class="shrink-0 absolute bottom-0 left-0 right-0 bg-gray-700 p-2 border-t-4 border-gray-600 z-20 pb-safe">
+            <div id="tool-info" class="text-center mb-2 text-yellow-300 text-[10px] h-3">
+                <!-- Selected tool info -->
             </div>
-            <div id="tool-info" class="text-center mt-2 text-yellow-300 text-xs h-4">
-                <!-- Selected tool info appears here -->
+            <div class="flex justify-around gap-1 max-w-4xl mx-auto" id="toolbar">
+                <button onclick="selectTool('feed')" id="btn-feed" class="pixel-btn bg-orange-600 active:bg-orange-500 text-white p-2 rounded border-b-4 border-orange-800 w-1/4 flex flex-col items-center justify-center h-16">
+                    <span class="text-2xl mb-1">🍖</span>
+                    <span class="text-[10px]">餌<br>20</span>
+                </button>
+                <button onclick="selectTool('heal')" id="btn-heal" class="pixel-btn bg-blue-600 active:bg-blue-500 text-white p-2 rounded border-b-4 border-blue-800 w-1/4 flex flex-col items-center justify-center h-16">
+                    <span class="text-2xl mb-1">💉</span>
+                    <span class="text-[10px]">治療<br>50</span>
+                </button>
+                <button onclick="selectTool('bandage')" id="btn-bandage" class="pixel-btn bg-white active:bg-gray-200 text-gray-800 p-2 rounded border-b-4 border-gray-400 w-1/4 flex flex-col items-center justify-center h-16">
+                    <span class="text-2xl mb-1">🩹</span>
+                    <span class="text-[10px]">包帯<br>30</span>
+                </button>
+                <button onclick="selectTool('remove')" id="btn-remove" class="pixel-btn bg-gray-600 active:bg-gray-500 text-white p-2 rounded border-b-4 border-gray-800 w-1/4 flex flex-col items-center justify-center h-16">
+                    <span class="text-2xl mb-1">⚰️</span>
+                    <span class="text-[10px]">撤去<br>100</span>
+                </button>
             </div>
         </div>
     </div>
 
     <!-- Start Screen -->
-    <div id="start-screen" class="fixed inset-0 bg-black bg-opacity-90 flex flex-col items-center justify-center z-50">
-        <h1 class="text-4xl md:text-6xl text-green-500 mb-4 text-center px-4" style="text-shadow: 4px 4px #000;">JUA SICK<br>WORLD</h1>
-        <p class="text-gray-400 mb-8 text-center text-xs md:text-sm px-8 max-w-lg leading-6">
-            恐竜たちはすぐに病気になったり怪我をしたりします。<br>
-            適切なツールで彼らを生かし、保護区を運営してください。<br>
-            <br>
-            🍖 餌: 空腹を治す<br>
-            💉 治療: 病気(ウイルス)を治す<br>
-            🩹 包帯: 怪我を治す
-        </p>
-        <button onclick="startGame()" class="pixel-btn bg-green-600 hover:bg-green-500 text-white py-4 px-8 rounded border-b-4 border-green-800 text-xl animate-pulse">
-            START GAME
+    <div id="start-screen" class="fixed inset-0 bg-gray-900 flex flex-col items-center justify-center z-50 p-4">
+        <div class="w-full max-w-md bg-gray-800 p-1 rounded-lg border-4 border-gray-700 mb-6 relative">
+            <!-- ユーザーの画像をここに表示。ファイル名を 'title.png' にしてください -->
+            <img src="title.png" onerror="this.style.display='none'; document.getElementById('title-text').style.display='block'" class="w-full h-auto rounded block" alt="JUA SICK WORLD">
+            
+            <!-- 画像がない場合のフォールバックテキスト -->
+            <h1 id="title-text" class="hidden text-3xl md:text-5xl text-green-500 text-center py-10" style="text-shadow: 4px 4px #000;">
+                JUA SICK<br>WORLD
+            </h1>
+        </div>
+
+        <button onclick="startGame()" class="pixel-btn bg-green-600 text-white py-4 px-12 rounded border-b-8 border-green-800 text-xl font-bold shadow-lg w-full max-w-xs animate-pulse mb-8">
+            GAME START
         </button>
+
+        <div class="text-gray-400 text-xs text-center leading-relaxed bg-black bg-opacity-50 p-4 rounded pixel-border max-w-md">
+            <p class="mb-2 text-yellow-300">MISSION: 資金を守り恐竜を救え！</p>
+            <p>🍖 餌: 空腹を回復</p>
+            <p>💉 注射: 病気を治療</p>
+            <p>🩹 包帯: 怪我を治療</p>
+        </div>
     </div>
 
     <!-- Game Over Screen -->
-    <div id="game-over-screen" class="fixed inset-0 bg-red-900 bg-opacity-90 flex flex-col items-center justify-center z-50 hidden">
-        <h1 class="text-4xl md:text-6xl text-white mb-4">GAME OVER</h1>
-        <p class="text-xl text-yellow-300 mb-4">生存日数: <span id="final-day">0</span>日</p>
-        <p id="game-over-reason" class="text-white mb-8 text-sm"></p>
-        <button onclick="location.reload()" class="pixel-btn bg-white text-red-900 py-3 px-6 rounded border-b-4 border-gray-400">
+    <div id="game-over-screen" class="fixed inset-0 bg-red-900 bg-opacity-95 flex flex-col items-center justify-center z-50 hidden p-4">
+        <h1 class="text-4xl text-white mb-6" style="text-shadow: 4px 4px #000;">GAME OVER</h1>
+        <div class="bg-black bg-opacity-50 p-6 rounded-lg text-center mb-8 border-4 border-red-700 w-full max-w-sm">
+            <p class="text-sm text-gray-300 mb-2">生存記録</p>
+            <p class="text-3xl text-yellow-400 mb-4"><span id="final-day">0</span> DAYS</p>
+            <p id="game-over-reason" class="text-white text-xs leading-5"></p>
+        </div>
+        <button onclick="location.reload()" class="pixel-btn bg-white text-red-900 py-4 px-8 rounded border-b-8 border-gray-400 font-bold">
             TRY AGAIN
         </button>
     </div>
@@ -166,9 +187,9 @@
         // --- Game Config & State ---
         const CONFIG = {
             initialFunds: 1000,
-            incomePerDino: 50, // 健全な恐竜1匹あたりの収入(日給)
+            incomePerDino: 50,
             maxDead: 3,
-            tickRate: 2000, // ms per tick (game speed)
+            tickRate: 2000,
             costs: {
                 feed: 20,
                 heal: 50,
@@ -191,7 +212,7 @@
         const DINO_TYPES = [
             { name: 'Rex', icon: '🦖', hp: 100, maxHp: 100 },
             { name: 'Sauro', icon: '🦕', hp: 120, maxHp: 120 },
-            { name: 'Trike', icon: '🐗', hp: 80, maxHp: 80 }, // Using Boar as chunky dino proxy
+            { name: 'Trike', icon: '🐗', hp: 80, maxHp: 80 },
             { name: 'Raptor', icon: '🦎', hp: 60, maxHp: 60 }
         ];
 
@@ -208,9 +229,8 @@
             updateUI();
             renderSanctuary();
             
-            // Loops
             state.gameInterval = setInterval(gameTick, CONFIG.tickRate);
-            state.dayInterval = setInterval(advanceDay, 10000); // 10秒で1日経過
+            state.dayInterval = setInterval(advanceDay, 10000);
         }
 
         function createRandomDino() {
@@ -219,7 +239,7 @@
                 id: Math.random().toString(36).substr(2, 9),
                 ...type,
                 currentHp: type.hp,
-                hunger: 0, // 0-100 (100 is starving)
+                hunger: 0,
                 isSick: false,
                 isInjured: false,
                 isDead: false
@@ -249,28 +269,24 @@
             state.dinos.forEach(dino => {
                 if (dino.isDead) return;
 
-                // Hunger Logic
                 dino.hunger += 5;
                 if (dino.hunger >= 100) {
                     dino.hunger = 100;
                     dino.currentHp -= 10;
                 }
 
-                // Sickness Logic (Random chance)
                 if (!dino.isSick && Math.random() < 0.1) {
                     dino.isSick = true;
                     showFloatText(dino.id, "SICK!", "text-purple-400");
                 }
                 if (dino.isSick) dino.currentHp -= 5;
 
-                // Injury Logic (Random chance)
                 if (!dino.isInjured && Math.random() < 0.08) {
                     dino.isInjured = true;
                     showFloatText(dino.id, "OUCH!", "text-red-400");
                 }
                 if (dino.isInjured) dino.currentHp -= 8;
 
-                // Death Check
                 if (dino.currentHp <= 0) {
                     dino.currentHp = 0;
                     dino.isDead = true;
@@ -288,7 +304,6 @@
             if (!state.isPlaying) return;
             state.day++;
             
-            // Income calculation
             let income = 0;
             state.dinos.forEach(dino => {
                 if (!dino.isDead && !dino.isSick && !dino.isInjured && dino.hunger < 50) {
@@ -298,7 +313,7 @@
             
             if (income > 0) {
                 state.funds += income;
-                showGlobalFloatText(`Income: +$${income}`);
+                showGlobalFloatText(`+$${income}`);
             }
 
             updateUI();
@@ -306,9 +321,9 @@
 
         function checkGameOver() {
             if (state.deadCount >= CONFIG.maxDead) {
-                gameOver("飼育崩壊: 死んでしまった恐竜が多すぎます...");
+                gameOver("飼育崩壊: 恐竜が死にすぎました");
             } else if (state.funds < 0) {
-                gameOver("破産: 資金が尽きました...");
+                gameOver("資金不足: 運営費が尽きました");
             }
         }
 
@@ -320,18 +335,22 @@
             // Reset button styles
             ['feed', 'heal', 'bandage', 'remove'].forEach(t => {
                 const btn = document.getElementById(`btn-${t}`);
-                btn.classList.remove('ring-4', 'ring-yellow-400');
+                btn.classList.remove('ring-4', 'ring-yellow-400', 'translate-y-1');
             });
 
-            // Highlight selected
             if (toolName) {
-                document.getElementById(`btn-${toolName}`).classList.add('ring-4', 'ring-yellow-400');
+                const btn = document.getElementById(`btn-${toolName}`);
+                btn.classList.add('ring-4', 'ring-yellow-400');
                 
+                // Add bounce effect to show selection
+                btn.classList.add('scale-105');
+                setTimeout(() => btn.classList.remove('scale-105'), 100);
+
                 const labels = {
-                    'feed': '選択中: 餌 (空腹を回復)',
-                    'heal': '選択中: 注射 (病気を治療)',
-                    'bandage': '選択中: 包帯 (怪我を治療)',
-                    'remove': '選択中: 撤去 (遺体を片付ける)'
+                    'feed': '選択中: 餌をあげる',
+                    'heal': '選択中: 病気を治す',
+                    'bandage': '選択中: 怪我を治す',
+                    'remove': '選択中: 遺体を撤去'
                 };
                 document.getElementById('tool-info').innerText = labels[toolName];
             }
@@ -343,8 +362,13 @@
             const dino = state.dinos[index];
             const cost = CONFIG.costs[state.selectedTool];
 
+            // Feedback for tap
+            const card = document.getElementById(`dino-${dino.id}`);
+            card.classList.add('brightness-125');
+            setTimeout(() => card.classList.remove('brightness-125'), 100);
+
             if (state.funds < cost) {
-                showFloatText(dino.id, "No Money!", "text-red-500");
+                showFloatText(dino.id, "NO MONEY", "text-red-500");
                 return;
             }
 
@@ -352,13 +376,12 @@
 
             if (state.selectedTool === 'remove') {
                 if (dino.isDead) {
-                    // Replace with new dino
                     state.funds -= cost;
                     state.dinos[index] = createRandomDino();
-                    showFloatText(state.dinos[index].id, "NEW DINO!", "text-green-400");
+                    showFloatText(state.dinos[index].id, "NEW!", "text-green-400");
                     actionSuccess = true;
                 } else {
-                    showFloatText(dino.id, "Still Alive!", "text-white");
+                    showFloatText(dino.id, "ALIVE!", "text-white");
                 }
             } else if (!dino.isDead) {
                 if (state.selectedTool === 'feed') {
@@ -366,36 +389,36 @@
                         state.funds -= cost;
                         dino.hunger = Math.max(0, dino.hunger - 50);
                         dino.currentHp = Math.min(dino.maxHp, dino.currentHp + 10);
-                        showFloatText(dino.id, "Yummy!", "text-green-400");
+                        showFloatText(dino.id, "YUM!", "text-green-400");
                         actionSuccess = true;
                     } else {
-                        showFloatText(dino.id, "Full!", "text-gray-400");
+                        showFloatText(dino.id, "FULL!", "text-gray-400");
                     }
                 } else if (state.selectedTool === 'heal') {
                     if (dino.isSick) {
                         state.funds -= cost;
                         dino.isSick = false;
-                        showFloatText(dino.id, "Cured!", "text-blue-400");
+                        showFloatText(dino.id, "CURED!", "text-blue-400");
                         actionSuccess = true;
                     } else {
-                        showFloatText(dino.id, "Not Sick!", "text-gray-400");
+                        showFloatText(dino.id, "HEALTHY!", "text-gray-400");
                     }
                 } else if (state.selectedTool === 'bandage') {
                     if (dino.isInjured) {
                         state.funds -= cost;
                         dino.isInjured = false;
-                        showFloatText(dino.id, "Fixed!", "text-white");
+                        showFloatText(dino.id, "FIXED!", "text-white");
                         actionSuccess = true;
                     } else {
-                        showFloatText(dino.id, "No Injury!", "text-gray-400");
+                        showFloatText(dino.id, "OK!", "text-gray-400");
                     }
                 }
             } else {
-                showFloatText(dino.id, "Too late...", "text-gray-500");
+                showFloatText(dino.id, "...", "text-gray-500");
             }
 
             if (actionSuccess) {
-                renderSanctuary(); // Immediate update
+                renderSanctuary();
                 updateUI();
             }
         };
@@ -404,7 +427,7 @@
 
         function updateUI() {
             document.getElementById('funds').innerText = state.funds;
-            document.getElementById('funds').className = state.funds < 100 ? "text-red-500 animate-pulse" : "text-yellow-400";
+            document.getElementById('funds').className = state.funds < 100 ? "text-red-500 animate-pulse font-bold" : "text-yellow-400 font-bold";
             document.getElementById('day').innerText = state.day;
             document.getElementById('dead-count').innerText = state.deadCount;
         }
@@ -417,49 +440,42 @@
                 const hpPercent = (dino.currentHp / dino.maxHp) * 100;
                 const hungerPercent = dino.hunger;
                 
-                // Status Icons
                 let statusHtml = '';
-                if (dino.isDead) statusHtml = '<span class="text-2xl">☠️</span>';
+                if (dino.isDead) statusHtml = '<span class="text-3xl filter drop-shadow-md">☠️</span>';
                 else {
-                    if (dino.isSick) statusHtml += '<span class="text-xl status-icon absolute top-0 right-0">🦠</span>';
-                    if (dino.isInjured) statusHtml += '<span class="text-xl status-icon absolute top-0 left-0">🤕</span>';
-                    if (dino.hunger > 70) statusHtml += '<span class="text-xl status-icon absolute bottom-8 right-0">🍖</span>';
+                    if (dino.isSick) statusHtml += '<span class="text-xl status-icon absolute top-0 right-0 filter drop-shadow-md">🦠</span>';
+                    if (dino.isInjured) statusHtml += '<span class="text-xl status-icon absolute top-0 left-0 filter drop-shadow-md">🤕</span>';
+                    if (dino.hunger > 70) statusHtml += '<span class="text-xl status-icon absolute bottom-8 right-0 filter drop-shadow-md">🍖</span>';
                 }
 
-                // Dynamic Classes
                 let cardBg = 'bg-gray-700';
                 let dinoOpacity = 'opacity-100';
                 if (dino.isDead) {
                     cardBg = 'bg-gray-900 border-gray-800';
-                    dinoOpacity = 'opacity-50 grayscale';
+                    dinoOpacity = 'opacity-40 grayscale';
                 } else if (dino.isSick || dino.isInjured || dino.hunger > 80) {
                     cardBg = 'bg-gray-700 border-red-900';
                 }
 
                 const html = `
-                    <div onclick="handleDinoClick(${index})" id="dino-${dino.id}" class="dino-card relative ${cardBg} p-2 rounded pixel-border h-40 flex flex-col justify-between cursor-pointer select-none">
+                    <div onclick="handleDinoClick(${index})" id="dino-${dino.id}" class="dino-card relative ${cardBg} p-2 rounded pixel-border h-36 flex flex-col justify-between cursor-pointer select-none shadow-md overflow-hidden">
                         
-                        <!-- Header -->
-                        <div class="flex justify-between items-center text-xs text-gray-400">
-                            <span>${dino.name}</span>
+                        <div class="flex justify-between items-center text-[10px] text-gray-400 font-bold">
+                            <span class="truncate">${dino.name}</span>
                             <span>${dino.isDead ? 'DEAD' : ''}</span>
                         </div>
 
-                        <!-- Main Icon Area -->
-                        <div class="relative flex justify-center items-center flex-grow">
-                            <span class="text-5xl ${dinoOpacity}">${dino.icon}</span>
+                        <div class="relative flex justify-center items-center flex-grow -mt-2">
+                            <span class="text-5xl ${dinoOpacity} filter drop-shadow-lg transform transition-transform">${dino.icon}</span>
                             ${statusHtml}
                         </div>
 
-                        <!-- Stats Bars -->
-                        <div class="space-y-1 w-full mt-2">
-                            <!-- HP Bar -->
-                            <div class="w-full bg-gray-900 h-2 rounded overflow-hidden border border-gray-600">
-                                <div class="h-full ${getHpColor(hpPercent)}" style="width: ${hpPercent}%"></div>
+                        <div class="space-y-1 w-full mt-1">
+                            <div class="w-full bg-gray-900 h-2 rounded overflow-hidden border border-gray-600 relative">
+                                <div class="h-full ${getHpColor(hpPercent)} transition-all duration-300" style="width: ${hpPercent}%"></div>
                             </div>
-                            <!-- Hunger Bar (Inverse: Full is bad) -->
-                            <div class="w-full bg-gray-900 h-1 rounded overflow-hidden">
-                                <div class="h-full bg-orange-500" style="width: ${hungerPercent}%"></div>
+                            <div class="w-full bg-gray-900 h-1.5 rounded overflow-hidden relative">
+                                <div class="h-full bg-orange-500 transition-all duration-300" style="width: ${hungerPercent}%"></div>
                             </div>
                         </div>
                     </div>
@@ -481,20 +497,20 @@
             const el = document.createElement('div');
             el.className = `floating-text font-bold ${colorClass}`;
             el.style.left = '50%';
-            el.style.top = '20%';
+            el.style.top = '30%';
             el.style.transform = 'translate(-50%, 0)';
             el.innerText = text;
             dinoEl.appendChild(el);
 
-            setTimeout(() => el.remove(), 1000);
+            setTimeout(() => el.remove(), 800);
         }
 
         function showGlobalFloatText(text) {
             const container = document.getElementById('game-container');
             const el = document.createElement('div');
-            el.className = "floating-text font-bold text-yellow-300 text-xl z-50";
+            el.className = "floating-text font-bold text-yellow-300 text-2xl z-50 shadow-black drop-shadow-md";
             el.style.left = '50%';
-            el.style.top = '10%';
+            el.style.top = '15%'; // ヘッダーとかぶらない位置
             el.style.transform = 'translate(-50%, 0)';
             el.innerText = text;
             container.appendChild(el);
